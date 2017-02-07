@@ -1,0 +1,154 @@
+{% extends "layout.html" %} {% block body %}
+    {% if session.logged_in %}
+   
+    <table class=input-table>
+    <td class=upload-file>
+    <h2>Upload File</h2>
+    <form action="/process_file" method=post enctype=multipart/form-data>
+      <p><input type=file name=file>
+        <dl>
+            <dt><strong>Author Information</strong>
+            <dd>Author First Name: <input type=text size=20 name=first_name>
+            <dd>Author Last Name: <input type=text size=20 name=last_name>
+            <dt><strong>Book Information</strong>
+            <dd>Title: <input type=text size=40 name=title>
+        </dl>
+        <p><input type=submit value=Upload>
+    </form>
+    </td>
+
+    <!--
+    <h2>Enter Text</h2>
+    <form action="{{ url_for('text_process') }}" method=post class=add-text>
+        <dl>
+            <dt>Paste text:
+            <dd><input type=text size=5000 name=text class=textbox>
+            <dd><input type=submit value=Process>
+        </dl>
+    </form>
+    <td class=enter-locations>
+    <h2>Enter Locations</h2>
+    <form action="{{ url_for('add_location') }}" method=post class=add-location>
+      <dl>
+        <dt>Location: <input type=text size=30 name=location>
+        <dt>Latitude: <input type=text size=15 name=lat>
+        <dt>Longitude: <input type=text size=15 name=lon>
+        <dt><input type=submit value=Post>
+      </dl>
+    </form>
+    </td>
+    -->
+    </table>
+    {% endif %}
+
+
+    <table class=page-layout> 
+    <td class=table-left>
+   
+    <div class=centroid>
+    Centroid: {{ cent }}
+    </div>
+
+    <div class=locations> 
+
+    <ul class=authors>
+    {% for author in authors %}
+        <li><h3>{{ author.first_name}} {{ author.last_name }}
+        <ul class=books>
+        {% for book in books if book.author_id == author.author_id %}
+            <li><p class=book-title>{{ book.title }}</p>
+            <li><a href='/confirm_locations?book_id={{ book.book_id }}'>Edit all</a>
+                <table class=locations>
+                {% for location in locations if location.book_id == book.book_id%}
+                    <tr>
+                        <td><a href="/?click={{location.location}}{{location.location_id}}">{{location.location}}: <small>{{ location.lat }}, {{ location.lon }}</small></a></td>
+                        <td>{{ location.country_name }}</td>
+                        <td><form action="/place_entry?book_id={{ book.book_id }}&location_id={{ location.location_id }}" method="post">
+                            <input type=submit value=Edit>
+                        </form></td>
+                        <td><form action="/delete/{{ location.location_id }}" method="post">
+                            <input type=submit value=Delete>
+                        </form></td>
+                        <td><form action="/delete_all?book_id={{ book.book_id }}&location_name={{ location.location }}" method="post">
+                            <input type=submit value="Delete All">
+                            </form>
+                        </td>
+                    </tr>
+                {% endfor %}
+                </table>
+        {% endfor %}
+        </ul>
+
+    {% endfor %}
+    
+
+    <!--
+    <ul class=entries>
+
+    <ul class=locations>
+    {% for location in locations %}
+    <li><h2>{{ location.location }}</h2>{{ location.lat }}, {{ location.lon }}, {{ location.location_id }}
+    <form action="/delete/{{ location.location_id }}" method="post">
+        <input type=submit value=Delete>
+    </form>
+    {% else %}
+    <li><em>No locations, clown.</em>
+    {% endfor %}
+    </ul>
+    -->
+
+    <ul>
+    <li>
+        <form action="/clear/" method="post">
+            <input type=submit value="Clear Table">
+        </form>
+    </ul>
+    </td>
+
+    <td class=table-right>
+
+    {% with %}
+
+        {% set location=cent %}
+        {% set style="width:40em;height:40em;float:right;" %}
+        
+        {{
+        googlemap(
+            "main-map",
+            location.0,location.1,
+            markers=responses,
+            style=style,
+            zoom=3
+            )
+        }}
+
+    {% endwith %}
+<!--
+    <div data-tap-disabled="true" id='mapid' >
+    {{ cent[0] }},{{ cent[1] }}
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.3/leaflet.js"></script>
+    <script src="http://cdn.leafletjs.com/leaflet-0.7.3/leaflet-src.js"></script>
+    <script>
+        var mymap = L.map('mapid').setView([{{ cent[0] }},{{ cent[1] }}], 2);
+        L.tileLayer('https://api.tiles.mapbox.com/v4/{id}/{z}/{x}/{y}.png?access_token={accessToken}', {
+        attribution: 'Map data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, Imagery © <a href="http://mapbox.com">Mapbox</a>',
+        maxZoom: 18,
+        id: 'mapbox.streets',
+        accessToken: 'pk.eyJ1IjoicHJwb2xlIiwiYSI6ImNpbHRvZjRteTAwOXB1ZGtzZ2xmdDBvN3IifQ.tPiOc_aeb0asBLSp5Vk5zg'
+        }).addTo(mymap);
+        
+
+        
+        {% for response in responses %}
+        var marker = L.marker([{{ response[0] }},{{ response[1] }}]).addTo(mymap).bindPopup("meow");
+        {% endfor %}
+
+    </script>
+    </div>
+    -->
+    </td>
+
+    </table>
+
+
+    {% endblock %}

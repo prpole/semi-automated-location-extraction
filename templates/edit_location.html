@@ -1,0 +1,69 @@
+{% extends "layout.html" %} {% block body %}
+    
+    <table class=page-layout> 
+    <td class=table-left>
+    
+    {% if session.logged_in %}
+    <table class=input_table>
+    <tr class=enter-locations>
+    <h2>Manual Update</h2>
+    </tr>
+    <tr>
+    <form action="/update_location/manual?id={{location.location_id}}" method=post class=add-location>
+        <tr><td>Latitude: </td><td><input type=text size=15 name=lat></td></tr>
+        <tr><td>Longitude: </td><td><input type=text size=15 name=lon></td></tr>
+        <tr><td></td><td><input type=submit value=Set></td></tr>
+    </form>
+    </td>
+    </table>
+    {% endif %}
+    
+    <div class=locations> 
+        <h2>{{ location.location }}</h2>
+        <table style="width:30em">
+            <tr><td><a href="/edit_location/{{ location_code }}?click={{ click_code }}&showall=showall">Show All</a></td></tr> 
+            <tr><td>Current: <small>{{ location.lat }}, {{ location.lon }}</td></small></tr>
+            <tr><td></td><td>Coordinates</td><td>Country</td><td></td></tr>
+                    {% set count = 1 %}
+                        {% for response in responses %}
+                        <tr>
+                            <td>{{ count }}</td>
+                            <td><form action="/update_location?id={{location_code}}&lat={{ response[0] }}&lng={{ response[1] }}&country={{ response[4] }}" method=post class=update-location>
+                            <a href='/edit_location/{{ location_code }}?click={{response[2]}}&showall={{ show_all }}'>{{ response[0] }},{{ response[1] }}</a></td>
+                            <td>{{ response[4] }}</td>
+                            <td><input type=submit value=set>
+                            </form></td>
+                            <td><form action="/update_location/all?id={{location_code}}&lat={{ response[0] }}&lng={{ response[1] }}&country={{ response[4] }}" method=post class=update-location>
+                            <input type=submit value="set all">
+                            </form></td>
+                        </tr>
+                        {% set count = count + 1 %}
+                        {% endfor %}
+        </table>
+        
+    </div>
+        
+    </td>
+    <td class=table-right>
+    
+    {% with %}
+        {% set location=cent %}
+        {% set style="width:40em;height:40em;float:right;" %}
+        
+        {{
+        googlemap(
+            "main-map",
+            location.0,location.1,
+            markers=responses,
+            style=style,
+            zoom=3
+            )
+        }}
+
+    {% endwith %}
+    
+    </td>
+
+    </table>
+
+    {% endblock %}

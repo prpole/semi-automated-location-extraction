@@ -1,0 +1,69 @@
+{% extends "layout.html" %}
+{% block body %}
+    {% if session.logged_in %}
+    <h2>Upload File</h2>
+    <form action="/process_file" method=post enctype=multipart/form-data>
+      <p><input type=file name=file>
+         <input type=submit value=Upload>
+    </form>
+    <h2>Enter Text</h2>
+    <form action="{{ url_for('text_process') }}" method=post class=add-text>
+        <dl>
+            <dt>Paste text:
+            <dd><input type=text size=5000 name=text class=textbox>
+            <dd><input type=submit value=Process>
+        </dl>
+    </form>
+
+    <h2>Enter Locations</h2>
+    <form action="{{ url_for('add_entry') }}" method=post class=add-entry>
+      <dl>
+        <dt>Location:
+        <dd><input type=text size=30 name=location>
+        <dt>Latitude:
+        <dd><input type=text size=15 name=lat>
+        <dt>Longitude:
+        <dd><input type=text size=15 name=lon>
+        <dd><input type=submit value=Post>
+      </dl>
+    </form>
+    {% endif %}
+<div class=centroid>
+{{ cent }}
+</div>
+<ul class=entries>
+{% for entry in entries %}
+<li><h2>{{ entry.location }}</h2>{{ entry.lat }}, {{ entry.lon }}, {{ entry.id }}
+<form action="/delete/{{ entry.id }}" method="post">
+    <input type=submit value=Delete>
+</form>
+{% else %}
+<li><em>No entries, clown.</em>
+{% endfor %}
+</ul>
+
+<ul>
+<li>
+    <form action="/clear/entries/" method="post">
+        <input type=submit value="Clear Table">
+    </form>
+</ul>
+
+{% with %}
+
+    {% set location=cent %}
+    {% set style="width:500px;height:500px;" %}
+    
+    {{
+    googlemap(
+        "main-map",
+        location.0,location.1,
+        markers=points,
+        style=style,
+        zoom=3
+        )
+    }}
+
+{% endwith %}
+
+{% endblock %}
