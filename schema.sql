@@ -7,7 +7,8 @@ create table locations(
     book_id references books(book_id),
     context varchar not null,
     country_name varchar,
-    fcode varchar
+    fcode varchar,
+    confidence integer
 );
 
 drop table if exists books;

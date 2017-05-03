@@ -1,3 +1,5 @@
+#! /usr/bin/python
+
 # coding: utf-8
 from nltk import tokenize
 from nltk.tag.stanford import StanfordNERTagger
@@ -5,9 +7,9 @@ import json
 import csv
 import re
 from time import sleep
-from urllib2 import Request, urlopen, URLError
+from urllib2 import Request, urlopen, URLError, quote
 import cPickle as pickle
-#import unidecode
+from unidecode import unidecode
 
 st = StanfordNERTagger('/home/prpole/venv/polfr/processing/stanford-ner-2015-04-20/classifiers/english.all.3class.distsim.crf.ser.gz','/home/prpole/venv/polfr/processing/stanford-ner-2015-04-20/stanford-ner.jar')
 
@@ -16,11 +18,8 @@ st = StanfordNERTagger('/home/prpole/venv/polfr/processing/stanford-ner-2015-04-
 def main(text):
     '''1. prep text'''
     raw = text_tokenize(text)
-    print raw
     tagged = tag_locations(raw)
-    print tagged
     coordinates = lookup_locations(tagged,raw)
-    print coordinates
     # writeout = csv_writeout(coordinates,fname)
     return coordinates
 
@@ -28,9 +27,7 @@ def main_file(fname):
     '''1. prep text'''
     raw = read_and_toke(fname)
     tagged = tag_locations(raw)
-    print tagged
     coordinates = lookup_locations(tagged,raw)
-    print coordinates
     # writeout = csv_writeout(coordinates,fname)
     return coordinates
 
@@ -39,8 +36,13 @@ def main_file(fname):
 def read_and_toke(fname):
     #open
     with open(fname,'r') as f:
-        #raw_text = unidecode.unidecode_expect_nonascii(f.read())
-        raw_text = f.read()
+        try:
+            raw_text = f.read().decode("utf-8")
+        except UnicodeDecodeError:
+            near_raw_text = f.read().decode("utf-8-sig")
+            raw_text = f.read().encode("utf-8")
+        #raw_text = f.read().decode("utf-8", errors="replace")
+        
     #toke
     toke_text = tokenize.word_tokenize(raw_text)
     return toke_text
@@ -110,7 +112,7 @@ def geonames_query(location,count=1):
         #query_string = baseurl+'username=%s&name_equals=%s&north=%s&south=%s&east=%s&west=%s&orderby=population' % (username,location,north,south,east,west)
         query_string = baseurl+'username=%s&name_equals=%s&orderby=population&fuzzy=1' % (username,location)
         ##run query, read output, and parse json response
-        response = urlopen(query_string)
+        response = urlopen(unidecode(query_string))
         response_string = response.read()
         parsed_response = json_decode.decode(response_string)
         #check to make sure there is a response to avoid keyerror
@@ -149,12 +151,11 @@ def geonames_query_full_record(location,count=1):
         ##line commented out includes a query with bounding-box parameters around Philadelphia
         #query_string = baseurl+'username=%s&name_equals=%s&north=%s&south=%s&east=%s&west=%s&orderby=population' % (username,location,north,south,east,west)
         if count != 0:
-            query_string = baseurl+'username=%s&name=%s&maxRows=%s&featureClass=P' % (username,location,count)
+            query_string = baseurl+'username=%s&q=%s&maxRows=%s' % (username,quote(location.encode('utf-8')),count)
         else:
-            query_string = baseurl+'username=%s&q=%s' \
-                                % (username,location)
+            query_string = baseurl+'username=%s&q=%s' % (username, quote(location.encode('utf-8')))
         ##run query, read output, and parse json response
-        response = urlopen(query_string)
+        response = urlopen(unidecode(query_string))
         response_string = response.read()
         parsed_response = json_decode.decode(response_string)
         #check to make sure there is a response to avoid keyerror
@@ -206,7 +207,7 @@ def lookup_locations(locations,raw):
     for place in unique_locs:
         place_response = geonames_query_full_record(place)
         if len(place_response) > 0:
-            place_coord = (place_response['lat'],place_response['lng'],place_response.get('countryName','')) #geonames_query(place)[0]
+            place_coord = (place_response['lat'],place_response['lng'],place_response.get('countryName',''),place_response.get('fcl','')) #geonames_query(place)[0]
             coordinates[place] = place_coord
     #array for each location mention: index, name, lat, lon, context
     for place in locations:
@@ -216,11 +217,41 @@ def lookup_locations(locations,raw):
             location_lat = coordinates[location_name][0]
             location_lon = coordinates[location_name][1]
             country_name = coordinates[location_name][2]
-            context = ' '.join(raw[location_position-20:location_position+20])
-            row = [location_position,location_name,location_lat,location_lon,context,country_name]
+            fcl = coordinates[location_name][3]
+            context = ' '.join(raw[location_position-100:location_position+100])
+            row = [location_position,location_name,location_lat,location_lon,context,country_name,fcl]
             all_locations.append(row)
         
     return all_locations
+
+def lookup_locations_google(locations,raw):
+    location_names = [ x[1] for x in locations ] #separate names from index
+    '''given list of locations, run query for each and return dict'''
+    coordinates = {} #dict to store coordinates
+    all_locations = []
+    unique_locs = list(set(location_names)) #only look up locations once
+    #get coordinates for every unique location
+    for place in unique_locs:
+        place_response = google_maps_api(place)
+        if len(place_response) > 0:
+            place_coord = (place_response['geometry']['location']['lat'],place_response['geometry']['location']['lng'],place_response['formatted_address'],'')
+            coordinates[place] = place_coord
+    #array for each location mention: index, name, lat, lon, context
+    for place in locations:
+        if place[1] in coordinates.keys():
+            location_position = place[0]
+            location_name = place[1]
+            location_lat = coordinates[location_name][0]
+            location_lon = coordinates[location_name][1]
+            country_name = coordinates[location_name][2]
+            fcl = coordinates[location_name][3]
+            context = ' '.join(raw[location_position-100:location_position+100])
+            row = [location_position,location_name,location_lat,location_lon,context,country_name,fcl]
+            all_locations.append(row)
+        
+    return all_locations
+
+
 
 def csv_writeout(all_locations,fname):
     with open(fname[:-4]+'_locations.csv','w') as f:
@@ -230,7 +261,37 @@ def csv_writeout(all_locations,fname):
             cwrite.writerow(row)
 
 
-
-
-
+def google_maps_api(location,count=1):
+    ## generate additional results from google maps
+    api_key = 'AIzaSyAFihHQXTLksseRyvKayTX3clyx9dQ6eks'
+    baseurl = 'https://maps.googleapis.com/maps/api/geocode/json?'
+    query_string = baseurl+'address=%s&key=%s' % (location,api_key)
+    json_decode = json.JSONDecoder() #used to parse json response
+    
+    try:
+        response = urlopen(unidecode(query_string))
+        response_string = response.read()
+        parsed_response = json_decode.decode(response_string)
+        #check to make sure there is a response to avoid keyerror
+        if len(parsed_response['results']) > 0:
+            if count == 1:
+                responses = parsed_response['results'][0]
+                coordinates = [(responses['geometry']['location']['lat'],responses['geometry']['location']['lng'])]
+            elif count > 1:
+                if len(parsed_response['results']) >= count:
+                    responses = parsed_response['results'][:count]
+                else:
+                    responses = parsed_response['results'][:len(parsed_response['results'])]
+                coordinates = [ (response['geometry']['location']['lat'],response['geometry']['location']['lng']) for response in responses]
+            elif count == 0:
+                responses = parsed_response['results'][:len(parsed_response['results'])]
+                coordinates = [ (response['geometry']['location']['lat'],response['geometry']['location']['lng']) for response in responses]
+        else: 
+            responses = {}
+            coordinates = [('','')]
+    except URLError, e:
+        responses = {}
+        coordinates = [('','')]
+        pass
+    return responses
 

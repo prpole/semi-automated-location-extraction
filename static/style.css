@@ -1,3 +1,5 @@
+@import url('../static/LeafletStyleSheet.css');
+
 body            { font-family: sans-serif; background: #eee; }
 a, h1, h2       { color: #377ba8; }
 h1, h2          { font-family: 'Georgia', serif; margin: 0; }
@@ -11,13 +13,13 @@ form input[type=text] { max-width: 400px; }
 
 .page-layout table { table-layout: auto; border: none; width: 100%; }
 
-.table-left     { width: 60em; height: 15em; position: relative; top:0; }
+.table-left     { width: 50em; height: 15em; position: relative; top:0; }
 
 .input-table    { width: 59em; vertical-align: top; }
 .upload-file    { width: 50%;}
 .enter-locations { width: 50%; }
 
-.table-right {width: 40em; vertical-align: top; }
+.table-right {width: 50em; vertical-align: top; }
 
 .main-map { float: right; position: relative; top: 0;}
 
@@ -39,4 +41,42 @@ li form         { float: right; }
                   border: 1px solid #aacbe2; }
 .error          { background: #f0d6d6; padding: 0.5em; }
 
-#mapid { height: 40em; }
+#mapid { height: 40em; display: block; }
+
+[type=checkbox] {
+    display: none;
+}
+
+:checked + div {
+    display: block !important;
+}
+
+#delete         { 
+                 background:none!important;
+                 color:red;
+                 border:none; 
+                 padding:0!important;
+                 font: inherit;
+                 /*border is optional*/
+                 border-bottom:1px solid #444; 
+                 cursor: pointer;
+                }
+
+label           { cursor: pointer; }
+
+#conf0          {
+                color: red;
+                }
+
+#conf1          {
+                color: orange;
+                }
+
+#conf2          {
+                color: LawnGreen;
+                }
+
+#conf3          {
+                color: LimeGreen;
+                }
+

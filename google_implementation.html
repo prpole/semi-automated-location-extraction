@@ -1,0 +1,19 @@
+<!--
+    {% with %}
+
+        {% set location=cent %}
+        {% set style="width:40em;height:40em;float:right;" %}
+        
+        {{
+        googlemap(
+            "main-map",
+            location.0,location.1,
+            markers=responses,
+            style=style,
+            zoom=3
+            )
+        }}
+
+    {% endwith %}
+
+-->

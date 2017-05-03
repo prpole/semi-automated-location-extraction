@@ -12,6 +12,7 @@
             <dd>Author Last Name: <input type=text size=20 name=last_name>
             <dt><strong>Book Information</strong>
             <dd>Title: <input type=text size=40 name=title>
+            <dt>Skip confidence measures? (faster) <input type=checkbox name=confidence value=confidence>
         </dl>
         <p><input type=submit value=Upload>
     </form>
@@ -53,29 +54,76 @@
 
     <ul class=authors>
     {% for author in authors %}
-        <li><h3>{{ author.first_name}} {{ author.last_name }}
+        <li><table><tr>
+            <td width=33%><h3>{{ author.first_name}} {{ author.last_name }}</h3></td>
+            <td width=33%><a href="/author?author_id={{ author.author_id }}">Author View</a></td>
+            <td width=33%><form action="/delete_author?author_id={{ author.author_id }}" method="post"><input type=submit value="Delete Author" onclick="return confirm('Are you sure you want to delete this author and all related books and locations?')" id="delete"></form></td>
+            </tr></table>
         <ul class=books>
         {% for book in books if book.author_id == author.author_id %}
-            <li><p class=book-title>{{ book.title }}</p>
-            <li><a href='/confirm_locations?book_id={{ book.book_id }}'>Edit all</a>
-                <table class=locations>
-                {% for location in locations if location.book_id == book.book_id%}
-                    <tr>
-                        <td><a href="/?click={{location.location}}{{location.location_id}}">{{location.location}}: <small>{{ location.lat }}, {{ location.lon }}</small></a></td>
-                        <td>{{ location.country_name }}</td>
-                        <td><form action="/place_entry?book_id={{ book.book_id }}&location_id={{ location.location_id }}" method="post">
-                            <input type=submit value=Edit>
-                        </form></td>
-                        <td><form action="/delete/{{ location.location_id }}" method="post">
-                            <input type=submit value=Delete>
-                        </form></td>
-                        <td><form action="/delete_all?book_id={{ book.book_id }}&location_name={{ location.location }}" method="post">
-                            <input type=submit value="Delete All">
-                            </form>
+                <li><table><tr height=15px>
+                <td width=33%><label for="{{ book.book_id }}"><p class=book-title>{{ book.title }}</p</label></td>
+                <td width=33%><a href='/book?book_id={{ book.book_id }}'>Book View</a></td>
+                <td width=33%><form action="/delete_book/{{ book.book_id }}" method="post"><input type=submit value="Delete Book" onclick="return confirm('Are you sure you want to delete this book and all related locations?')" id="delete"></form></td>
+                </tr></table>
+            
+                <!-- hide /show locations for book -->
+                
+                <input id="{{ book.book_id }}" type=checkbox>
+                <div class="test_hide" style="display:none;">
+                <!--for location in locations if location.book_id == book.book_id|groupby('location.location') -->
+                <ul class=locations>
+                <li><a href='/confirm_locations?book_id={{ book.book_id }}'>Edit all</a>
+
+                {% for location in locations|groupby('location') if location.list[0][4] == book.book_id %}
+                    <li><table><tr>
+                        <td width=50%><label for="{{ location.grouper }}">{{ location.grouper }}</label></td> 
+                        <td width=50% align="left">
+                        {% if location.list[0][8] == 0 %}
+                        <p id='conf0'>Not Confident</p>
+                        {% endif %} 
+                        {% if location.list[0][8] == 1 %}
+                        <p id='conf1'>Somewhat Confident</p>
+                        {% endif %}
+                        {% if location.list[0][8] == 2 %}
+                        <p id='conf2'>Confident</p>
+                        {% endif %}
+                        {% if location.list[0][8] == 3 %}
+                        <p id='conf3'>Very Confident</p>
+                        {% endif %}
                         </td>
-                    </tr>
+                        </tr></table>
+                    
+                    <input id="{{ location.grouper }}" type=checkbox>
+                    <div class="test_hide" style="display:none;">
+                    
+                    <table class=locations> 
+                    {% for place in location.list %}
+        
+                       <tr>
+                            <td><a href="/?click={{place.location}}{{place.location_id}}">{{place.location}}: <small>{{ place.lat }}, {{ place.lon }}</small></a></td>
+                            <td>{{ place.country_name }}</td>
+                            <td><form action="/place_entry?book_id={{ book.book_id }}&location_id={{ place.location_id }}" method="post">
+                                <input type=submit value=Edit>
+                            </form></td>
+                            <td><form action="/delete/{{ place.location_id }}" method="post">
+                                <input type=submit value=Delete onclick="return confirm('Are you sure you want to delete this location instance?')">
+                            </form></td>
+                            <td><form action="/delete_all?book_id={{ book.book_id }}&location_name={{ place.location }}" method="post">
+                                <input type=submit value="Delete All" onclick="return confirm('Are you sure you want to delete all instances of this location in this book?')">
+                                </form>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td colspan=5><blockquote>{{ place.context }}</blockquote></td>
+                        </tr>
+                    {% endfor %}
+                    </table>
+                    
+                    </div>
                 {% endfor %}
-                </table>
+                </ul>
+                </div>
         {% endfor %}
         </ul>
 
@@ -107,45 +155,184 @@
 
     <td class=table-right>
 
-    {% with %}
+    
+    <div id="mapid" >
 
-        {% set location=cent %}
-        {% set style="width:40em;height:40em;float:right;" %}
-        
-        {{
-        googlemap(
-            "main-map",
-            location.0,location.1,
-            markers=responses,
-            style=style,
-            zoom=3
-            )
-        }}
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.0.0-beta.2.rc.2/leaflet.js"></script>
+    <script src="http://code.jquery.com/jquery-1.11.3.min.js"></script>
+    <script src="{{ url_for('static',filename='PruneCluster.js') }}" type="text/javascript"></script>
+    <script src="{{ url_for('static',filename='leaflet.ajax.min.js') }}" type="text/javascript"></script>
 
-    {% endwith %}
-<!--
-    <div data-tap-disabled="true" id='mapid' >
     {{ cent[0] }},{{ cent[1] }}
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.3/leaflet.js"></script>
-    <script src="http://cdn.leafletjs.com/leaflet-0.7.3/leaflet-src.js"></script>
     <script>
-        var mymap = L.map('mapid').setView([{{ cent[0] }},{{ cent[1] }}], 2);
-        L.tileLayer('https://api.tiles.mapbox.com/v4/{id}/{z}/{x}/{y}.png?access_token={accessToken}', {
-        attribution: 'Map data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, Imagery © <a href="http://mapbox.com">Mapbox</a>',
-        maxZoom: 18,
-        id: 'mapbox.streets',
-        accessToken: 'pk.eyJ1IjoicHJwb2xlIiwiYSI6ImNpbHRvZjRteTAwOXB1ZGtzZ2xmdDBvN3IifQ.tPiOc_aeb0asBLSp5Vk5zg'
-        }).addTo(mymap);
         
+        var map = L.map("mapid", {
+            attributionControl: false,
+            zoomControl: false
+        }).setView(L.latLng({{ cent[0] }}, {{ cent[1] }}), 3);
+
+
+        L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png', {
+            detectRetina: true,
+            maxNativeZoom: 17
+        }).addTo(map);
+
+        var pointList = [];
+        var countryList = [];
+
+        {% for region in region_list %}
+            pointList.push("{{ region }}");
+        {% endfor %}
+
+        {% for country in country_list %}
+            countryList.push("{{ country }}");
+        {% endfor %}
+    
+        console.log(countryList);
+                
+        
+        function addCountryDataToMap(data,map) {
+            L.geoJson(data, {
+                filter: function(feature, layer) {
+                    var featureIndex = pointList.indexOf(feature.properties.ADMIN);
+                    var backupIndex = pointList.indexOf(feature.properties.NAME);
+                    var manualBackupIndex = pointList.indexOf(feature.properties.NAME_ALT);
+                    return (featureIndex >= 0 || backupIndex >= 0 || manualBackupIndex >= 0);
+                },
+                onEachFeature: onEachCountry
+            }).setStyle(countryStyle).addTo(map);
+        }
+       
+        $.getJSON("{{ url_for('static', filename='countries_small.geojson') }}", function(data) { addCountryDataToMap(data,map); });
+
+        var provinceList = new Array;
+    
+        // this function checks for substrings
+        function adminContains(country,admin) {
+            var countryRegExp = new RegExp(country);
+            if (countryRegExp.test(str(admin))) {
+                var containValue = true;
+            } else {
+                var containValue = false;
+            }
+            return containValue;
+        }
+
+        // note there HAS to be a less intensive way to do this; its broken!
+        
+        function addProvinceDataToMap(data,map) {
+            L.geoJson(data, {
+                filter: function(feature, layer) {
+                    console.log(feature.properties.admin);
+                    var featureIndex = pointList.indexOf(feature.properties.name);
+                    // check if feature occurs in list of relevant countries
+                    //var countryListLength = countryList.length;
+                    //for (var i = 0; i < countryListLength; i++) {
+                    //    if ( adminContains(countryList[i],feature.properties.admin) ) {
+                    //        var countryIndex = true;
+                    //    } else {
+                    //        var countryIndex = false;
+                    //    }
+                    //    console.log(countryList[i],countryIndex);
+                    //}
+                    //return featureIndex >= 0 && countryIndex;
+                    return featureIndex >= 0;
+                },
+                onEachFeature: onEachProvince
+            }).setStyle(provinceStyle).addTo(map);
+        }
+       
+        $.getJSON("{{ url_for('static', filename='provinces_small.geojson') }}", function(data) { addProvinceDataToMap(data,map); });
+
+        function onEachProvince(feature, layer) {
+            var gjPopupContent = feature.properties.name;
+            layer.bindPopup(gjPopupContent);
+        }
+        
+        function onEachCountry(feature, layer) {
+            var gjPopupContent = feature.properties.ADMIN;
+            layer.bindPopup(gjPopupContent);
+        }
+                
 
         
-        {% for response in responses %}
-        var marker = L.marker([{{ response[0] }},{{ response[1] }}]).addTo(mymap).bindPopup("meow");
+        function countryStyle(feature) {
+            return {
+                weight: 1,
+                opacity: 1,
+                color: 'blue',
+                dashArray: '3',
+                fillOpacity: .5,
+                fillColor: '#aabedc'
+            };
+        }
+
+        function provinceStyle(feature) {
+            return {
+                weight: 1,
+                opacity: 1,
+                color: 'orange',
+                dashArray: '3',
+                fillOpacity: .5,
+                fillColor: '#ff7373'
+            };
+        } 
+
+        
+        //function pointCheck(feature) {  
+        //    console.log(feature,countryList.indexOf(feature) < 0 && provinceList.indexOf(feature) < 0);
+        //    return countryList.indexOf(feature) < 0 && provinceList.indexOf(feature) < 0;
+        //}
+
+        //var newPointList = pointList.filter(pointCheck)
+    
+        //console.log(newPointList);
+
+
+        var leafletView = new PruneClusterForLeaflet(); 
+
+        
+        {% for loc in locations %}
+        if (pointList.indexOf("{{ loc[0] }}") < 0) {
+            leafletView.RegisterMarker(new PruneCluster.Marker({{ loc[1] }}, {{ loc[2] }}, {text: "{{ loc[0] }}"}));
+        }
         {% endfor %}
+
+        leafletView.PrepareLeafletMarker = function (marker, data) {
+            if (marker.getPopup()) {
+                marker.setPopupContent(data.text);
+            } else {
+                marker.bindPopup(data.text);
+            }
+        };
+
+                        
+        map.addLayer(leafletView);
+
+        var borderStyle = {
+            "color": "#ff7800",
+            "weight": 4,
+            "opacity": 1
+        };
+
+        // click support to manually add points
+
+        var clickLat,clickLng;
+
+        map.on('contextmenu', function (event) {
+            document.getElementById("latitude_box").value=event.latlng.lat;
+            document.getElementById("longitude_box").value=event.latlng.lng;
+        });
+
+    
+        console.log(provinceList);
+        
+
 
     </script>
     </div>
-    -->
+    
+    
     </td>
 
     </table>
